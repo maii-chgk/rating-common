@@ -24,9 +24,11 @@ create materialized view tournament_results as
 create materialized view tournament_players as
     select player.r_id as player_id,
            tourn.r_id as tournament_id,
-           team.r_id as team_id
+           team.r_id as team_id,
+           ro.flag
     from "rating_result_teamMembers"
     left join rating_player player on "rating_result_teamMembers".player_id = player.id
     left join rating_result res on "rating_result_teamMembers".result_id = res.id
     left join rating_tournament tourn on res.tournament_id = tourn.id
-    left join rating_team team on res.team_id = team.id;
+    left join rating_team team on res.team_id = team.id
+    left join rating_oldrating ro on res.id = ro.result_id and player.id = ro.player_id;
