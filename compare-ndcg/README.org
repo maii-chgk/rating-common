@@ -20,7 +20,10 @@
 
 Пример:
 #+BEGIN_SRC bash
-DATABASE="host=1.2.3.4 port=5432 user=u password=p dbname=d" python compute_quality.py --rating ia --baseline b 7881 b
+DATABASE="host=1.2.3.4 port=5432 user=u password=p dbname=d" python compute_quality.py --rating ia --baseline b 7881 6926 7207 7253 7281 7398
+
+# Сравнить на всех турнирах с рейтингом Б
+DATABASE="host=1.2.3.4 port=5432 user=u password=p dbname=d" python compute_quality.py --rating ia
 #+END_SRC
 * Зависимости
 - psycopg2
