@@ -8,6 +8,7 @@ import pandas as pd
 import scipy.stats as stats
 import sklearn.metrics as metrics
 import warnings
+from datetime import datetime as dt
 
 
 def db_connection():
@@ -46,7 +47,7 @@ def ndcg_for_tournament(tournament_id, rating, baseline) -> dict:
         df = pd.read_sql(sql, conn)
         # некоторые турниры могут быть без результатов
         if df.size == 0:
-            log.error(f"no results for {tournament_id} in {rating}")
+            log.info(f"no results for {tournament_id} in {rating}")
             continue
         y_true = df.get('position').to_numpy()
         y_score = df.get('mp').to_numpy()
@@ -58,6 +59,42 @@ def ndcg_for_tournament(tournament_id, rating, baseline) -> dict:
             log.error(e)
             log.debug(df)
     return row
+
+
+def create_ndcg_table(cursor):
+    sql = """
+        create table if not exists ndcg (
+            rating_name text,
+            tournament_id integer,
+            ndcg real,
+            updated_at timestamp
+        )
+    """
+    cursor.execute(sql)
+
+
+def delete_old_records(rating_name: str, cursor):
+    sql = f"""
+        delete from ndcg
+        where rating_name = '{rating_name}'
+    """
+    cursor.execute(sql)
+
+
+def save_ndcg_to_database(results: list[dict], rating_name: str, connection):
+    with connection.cursor() as cursor:
+        create_ndcg_table(cursor)
+        delete_old_records(rating_name, cursor)
+        timestamp = dt.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        values = ",\n".join(f"('{rating_name}', {row['tid']}, {row['ndcg']}, '{timestamp}')"
+                            for row in results)
+        sql = f"""
+            insert into ndcg (rating_name, tournament_id, ndcg, updated_at)
+            values {values}; 
+        """
+
+        cursor.execute(sql)
+    connection.commit()
 
 
 # Парсер аргументов командной строки
@@ -81,6 +118,15 @@ tournaments = args.tournaments or fetch_tournaments(conn)
 
 # Получение набора пар nDCG
 results = [ndcg for tid in tournaments if (ndcg := ndcg_for_tournament(tid, args.rating, args.baseline))]
+
+save_ndcg_to_database([{'ndcg': r['rating'], 'tid': r['tid']}
+                       for r in results
+                       if r.get('rating')],
+                      args.rating, conn)
+save_ndcg_to_database([{'ndcg': r['baseline'], 'tid': r['tid']}
+                       for r in results
+                       if r.get('baseline')],
+                      args.baseline, conn)
 
 # Вывод финального набора пар nDCG
 res_df = pd.DataFrame(results, columns=['tid', 'rating', 'baseline'])
