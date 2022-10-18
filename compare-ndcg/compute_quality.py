@@ -2,6 +2,7 @@
 
 import argparse
 import logging as log
+import numpy as np
 import os
 import psycopg2
 import pandas as pd
@@ -31,6 +32,9 @@ def fetch_tournaments(connection) -> list:
     return tournaments
 
 
+def place_to_rel(y: np.ndarray) -> np.ndarray:
+    return 1 / y
+
 def ndcg_for_tournament(tournament_id, rating, baseline) -> dict:
     log.info('Loading tournament %d', tournament_id)
     row = {'tid': tournament_id}
@@ -49,8 +53,8 @@ def ndcg_for_tournament(tournament_id, rating, baseline) -> dict:
         if df.size == 0:
             log.info(f"no results for {tournament_id} in {rating}")
             continue
-        y_true = df.get('position').to_numpy()
-        y_score = df.get('mp').to_numpy()
+        y_true = place_to_rel(df.get('position').to_numpy())
+        y_score = place_to_rel(df.get('mp').to_numpy())
         try:
             ndcg = metrics.ndcg_score([y_true], [y_score])
             log.debug('nDCG: %f', ndcg)
